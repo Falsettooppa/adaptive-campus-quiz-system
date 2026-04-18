@@ -1,0 +1,22 @@
+/*! tailwindcss v4.2.2 | MIT License | https://tailwindcss.com */
+.static {
+  position: static;
+}
+.flex {
+  display: flex;
+}
+.min-h-screen {
+  min-height: 100vh;
+}
+.w-full {
+  width: 100%;
+}
+.items-center {
+  align-items: center;
+}
+.justify-center {
+  justify-content: center;
+}
+.text-center {
+  text-align: center;
+}
