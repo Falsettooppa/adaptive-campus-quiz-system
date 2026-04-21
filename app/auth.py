@@ -4,10 +4,25 @@ from functools import wraps
 
 auth = Blueprint("auth", __name__)
 
-
 # Temporary in-memory users store
-# We will replace this with MongoDB later
-users = []
+users = [
+    {
+        "id": 1,
+        "full_name": "System Administrator",
+        "matric_number": None,
+        "email": "admin@example.com",
+        "password_hash": generate_password_hash("admin123"),
+        "role": "admin"
+    },
+    {
+        "id": 2,
+        "full_name": "Dr. John Lecturer",
+        "matric_number": None,
+        "email": "lecturer@example.com",
+        "password_hash": generate_password_hash("lecturer123"),
+        "role": "lecturer"
+    }
+]
 
 
 def login_required(role=None):

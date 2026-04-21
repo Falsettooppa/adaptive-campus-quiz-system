@@ -3,39 +3,79 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Student Dashboard</title>
+  <title>Lecturer Dashboard</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
 </head>
 <body class="bg-slate-100 min-h-screen">
-  <div class="max-w-6xl mx-auto px-6 py-10">
+  <div class="max-w-7xl mx-auto px-6 py-10">
     {% include 'partials/flash.html' %}
 
     <div class="bg-white rounded-2xl shadow-xl p-8">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800">Student Dashboard</h1>
+          <h1 class="text-3xl font-bold text-slate-800">Lecturer Dashboard</h1>
           <p class="text-slate-600 mt-1">Welcome, {{ user.full_name }}</p>
         </div>
-        <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">
-          Logout
-        </a>
+        <div class="flex flex-wrap gap-3">
+          <a href="{{ url_for('main.create_course') }}" class="bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-800">
+            Create Course
+          </a>
+          <a href="{{ url_for('main.create_question') }}" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
+            Add Question
+          </a>
+          <a href="{{ url_for('main.view_questions') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700">
+            View Questions
+          </a>
+          <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">
+            Logout
+          </a>
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Quiz History</h3>
-          <p class="text-slate-500 mt-2">No quiz attempts yet.</p>
+          <h3 class="text-lg font-semibold text-slate-700">Total Courses</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ courses|length }}</p>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Cumulative Score</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-3">0%</p>
+          <h3 class="text-lg font-semibold text-slate-700">Question Bank</h3>
+          <p class="text-slate-500 mt-2">Manage adaptive quiz questions by course and difficulty.</p>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Ability Progression</h3>
-          <p class="text-slate-500 mt-2">Coming soon.</p>
+          <h3 class="text-lg font-semibold text-slate-700">Analytics</h3>
+          <p class="text-slate-500 mt-2">Performance analytics will be connected after the quiz engine is built.</p>
         </div>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 mb-4">My Courses</h2>
+
+        {% if courses %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <thead class="bg-slate-100">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course Code</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course Title</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for course in courses %}
+                  <tr class="border-t border-slate-200">
+                    <td class="px-4 py-3 text-slate-700">{{ course.course_code }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ course.course_title }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="bg-slate-50 rounded-xl p-6 text-slate-500">
+            No courses created yet.
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>

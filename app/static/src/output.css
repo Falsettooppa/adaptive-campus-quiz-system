@@ -21,8 +21,14 @@
 .w-full {
   width: 100%;
 }
+.min-w-full {
+  min-width: 100%;
+}
 .grid-cols-1 {
   grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+.flex-col {
+  flex-direction: column;
 }
 .flex-wrap {
   flex-wrap: wrap;
@@ -36,12 +42,25 @@
 .justify-center {
   justify-content: center;
 }
+.overflow-hidden {
+  overflow: hidden;
+}
+.overflow-x-auto {
+  overflow-x: auto;
+}
 .border {
   border-style: var(--tw-border-style);
   border-width: 1px;
 }
+.border-t {
+  border-top-style: var(--tw-border-style);
+  border-top-width: 1px;
+}
 .text-center {
   text-align: center;
+}
+.text-left {
+  text-align: left;
 }
 .hover\:underline {
   &:hover {
