@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz Result</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-5xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+      <h1 class="text-3xl font-bold text-slate-800 mb-2">Quiz Result</h1>
+      <p class="text-slate-600">{{ course.course_code }} - {{ course.course_title }}</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mt-8">
+        <div class="bg-slate-50 rounded-xl p-5">
+          <h3 class="text-sm font-semibold text-slate-600">Total Questions</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_questions }}</p>
+        </div>
+        <div class="bg-green-50 rounded-xl p-5">
+          <h3 class="text-sm font-semibold text-green-700">Correct</h3>
+          <p class="text-3xl font-bold text-green-800 mt-2">{{ correct_answers }}</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-5">
+          <h3 class="text-sm font-semibold text-red-700">Wrong</h3>
+          <p class="text-3xl font-bold text-red-800 mt-2">{{ wrong_answers }}</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-5">
+          <h3 class="text-sm font-semibold text-blue-700">Ability</h3>
+          <p class="text-2xl font-bold text-blue-800 mt-2">{{ quiz.ability_estimate }}</p>
+        </div>
+      </div>
+
+      <div class="mt-8 bg-slate-50 rounded-xl p-6">
+        <h2 class="text-lg font-semibold text-slate-800">Final Score</h2>
+        <p class="text-4xl font-bold text-slate-900 mt-2">{{ percentage }}%</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <h2 class="text-2xl font-bold text-slate-800 mb-6">Answer Review</h2>
+
+      <div class="space-y-5">
+        {% for response in quiz.responses %}
+          <div class="border rounded-xl p-5 {% if response.is_correct %}border-green-200 bg-green-50{% else %}border-red-200 bg-red-50{% endif %}">
+            <p class="font-semibold text-slate-800 mb-2">{{ loop.index }}. {{ response.question_text }}</p>
+            <p class="text-sm text-slate-700"><strong>Your Answer:</strong> {{ response.selected_option }}</p>
+            <p class="text-sm text-slate-700"><strong>Correct Answer:</strong> {{ response.correct_option }}</p>
+            <p class="text-sm text-slate-700"><strong>Difficulty:</strong> {{ response.difficulty_level }}</p>
+
+            {% if response.explanation %}
+              <p class="text-sm text-slate-600 mt-2"><strong>Explanation:</strong> {{ response.explanation }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="mt-8">
+        <a href="{{ url_for('main.student_dashboard') }}" class="bg-slate-900 text-white px-5 py-3 rounded-xl hover:bg-slate-800">
+          Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

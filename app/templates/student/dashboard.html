@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
 </head>
 <body class="bg-slate-100 min-h-screen">
-  <div class="max-w-6xl mx-auto px-6 py-10">
+  <div class="max-w-7xl mx-auto px-6 py-10">
     {% include 'partials/flash.html' %}
 
     <div class="bg-white rounded-2xl shadow-xl p-8">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 class="text-3xl font-bold text-slate-800">Student Dashboard</h1>
           <p class="text-slate-600 mt-1">Welcome, {{ user.full_name }}</p>
@@ -21,21 +21,78 @@
         </a>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Quiz History</h3>
-          <p class="text-slate-500 mt-2">No quiz attempts yet.</p>
+          <h3 class="text-lg font-semibold text-slate-700">Quiz Attempts</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ total_attempts }}</p>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Cumulative Score</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-3">0%</p>
+          <h3 class="text-lg font-semibold text-slate-700">Average Score</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ average_score }}%</p>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Ability Progression</h3>
-          <p class="text-slate-500 mt-2">Coming soon.</p>
+          <h3 class="text-lg font-semibold text-slate-700">Current Ability</h3>
+          <p class="text-2xl font-bold text-slate-900 mt-3">{{ latest_ability }}</p>
         </div>
+      </div>
+
+      <div class="mb-10">
+        <h2 class="text-xl font-bold text-slate-800 mb-4">Available Courses</h2>
+
+        {% if courses %}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {% for course in courses %}
+              <div class="bg-slate-50 rounded-xl p-5 shadow-sm border border-slate-200">
+                <h3 class="text-lg font-semibold text-slate-800">{{ course.course_code }}</h3>
+                <p class="text-slate-600 mt-1">{{ course.course_title }}</p>
+
+                <a href="{{ url_for('main.start_quiz', course_id=course.id) }}"
+                   class="inline-block mt-4 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
+                  Start Quiz
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="bg-slate-50 rounded-xl p-6 text-slate-500">
+            No courses are available yet.
+          </div>
+        {% endif %}
+      </div>
+
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 mb-4">Quiz History</h2>
+
+        {% if attempts %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <thead class="bg-slate-100">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Quiz ID</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course ID</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Score</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Ability</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for attempt in attempts %}
+                  <tr class="border-t border-slate-200">
+                    <td class="px-4 py-3 text-slate-700">{{ attempt.id }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ attempt.course_id }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ attempt.score }}%</td>
+                    <td class="px-4 py-3 text-slate-700">{{ attempt.ability_estimate }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="bg-slate-50 rounded-xl p-6 text-slate-500">
+            No quiz attempts yet.
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>
