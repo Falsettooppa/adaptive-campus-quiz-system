@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Course</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-3xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Create Course</h1>
+        <a href="{{ url_for('main.lecturer_dashboard') }}" class="text-blue-600 hover:underline">Back</a>
+      </div>
+
+      <form method="POST" class="space-y-5">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Course Code</label>
+          <input type="text" name="course_code" placeholder="e.g. CSC401" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Course Title</label>
+          <input type="text" name="course_title" placeholder="e.g. Artificial Intelligence" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <button type="submit" class="w-full bg-slate-900 text-white py-3 rounded-xl hover:bg-slate-800">
+          Save Course
+        </button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
