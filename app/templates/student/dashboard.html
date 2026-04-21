@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-6xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-slate-800">Student Dashboard</h1>
+          <p class="text-slate-600 mt-1">Welcome, {{ user.full_name }}</p>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">
+          Logout
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Quiz History</h3>
+          <p class="text-slate-500 mt-2">No quiz attempts yet.</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Cumulative Score</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">0%</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Ability Progression</h3>
+          <p class="text-slate-500 mt-2">Coming soon.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
