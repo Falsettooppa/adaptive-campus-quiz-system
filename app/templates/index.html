@@ -6,10 +6,25 @@
   <title>Adaptive Campus Quiz System</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <div class="bg-white shadow-lg rounded-2xl p-8 max-w-xl w-full text-center">
-    <h1 class="text-3xl font-bold text-gray-800 mb-4">Adaptive Campus Quiz System</h1>
-    <p class="text-gray-600">Project setup is working with Flask and Tailwind CSS.</p>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-5xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white shadow-xl rounded-2xl p-8">
+      <h1 class="text-3xl font-bold text-slate-800 mb-4">Adaptive Campus Quiz System</h1>
+      <p class="text-slate-600 mb-6">
+        A smart web-based platform for adaptive quizzes, automated grading, and academic performance tracking.
+      </p>
+
+      <div class="flex flex-wrap gap-4">
+        <a href="{{ url_for('auth.register') }}" class="bg-slate-900 text-white px-5 py-3 rounded-xl hover:bg-slate-800">
+          Student Registration
+        </a>
+        <a href="{{ url_for('auth.login') }}" class="bg-blue-600 text-white px-5 py-3 rounded-xl hover:bg-blue-700">
+          Login
+        </a>
+      </div>
+    </div>
   </div>
 </body>
 </html>
