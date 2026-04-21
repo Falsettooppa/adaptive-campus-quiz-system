@@ -114,6 +114,7 @@ def start_quiz(course_id):
     quiz_session = {
         "id": len(quiz_sessions) + 1,
         "student_id": session["user"]["id"],
+        "student_name": session["user"]["full_name"],
         "course_id": course_id,
         "status": "in_progress",
         "current_difficulty": "medium",
@@ -161,7 +162,8 @@ def take_quiz():
             "correct_option": question["correct_option"],
             "is_correct": is_correct,
             "explanation": question["explanation"],
-            "difficulty_level": question["difficulty_level"]
+            "difficulty_level": question["difficulty_level"],
+            "topic": question["topic"]
         })
 
         if is_correct:
@@ -241,10 +243,121 @@ def quiz_result(quiz_id):
 def lecturer_dashboard():
     lecturer = session.get("user")
     lecturer_courses = [course for course in courses if course["lecturer_id"] == lecturer["id"]]
+    lecturer_course_ids = [course["id"] for course in lecturer_courses]
+
+    lecturer_quiz_sessions = [
+        quiz for quiz in quiz_sessions
+        if quiz["course_id"] in lecturer_course_ids and quiz["status"] == "completed"
+    ]
+
+    total_courses = len(lecturer_courses)
+    total_attempts = len(lecturer_quiz_sessions)
+
+    average_score = 0
+    if total_attempts > 0:
+        average_score = round(
+            sum(quiz["score"] for quiz in lecturer_quiz_sessions) / total_attempts,
+            2
+        )
+
+    total_students = len(set(quiz["student_id"] for quiz in lecturer_quiz_sessions))
+
     return render_template(
         "lecturer/dashboard.html",
         user=lecturer,
-        courses=lecturer_courses
+        courses=lecturer_courses,
+        total_courses=total_courses,
+        total_attempts=total_attempts,
+        average_score=average_score,
+        total_students=total_students
+    )
+
+
+@main.route("/lecturer/analytics")
+@login_required(role="lecturer")
+def lecturer_analytics():
+    lecturer = session.get("user")
+    lecturer_courses = [course for course in courses if course["lecturer_id"] == lecturer["id"]]
+    lecturer_course_ids = [course["id"] for course in lecturer_courses]
+
+    lecturer_quiz_sessions = [
+        quiz for quiz in quiz_sessions
+        if quiz["course_id"] in lecturer_course_ids and quiz["status"] == "completed"
+    ]
+
+    course_stats = []
+    topic_gap_counter = {}
+    student_stats = {}
+
+    for course in lecturer_courses:
+        course_attempts = [quiz for quiz in lecturer_quiz_sessions if quiz["course_id"] == course["id"]]
+        attempt_count = len(course_attempts)
+        participant_count = len(set(quiz["student_id"] for quiz in course_attempts))
+
+        avg_score = 0
+        if attempt_count > 0:
+            avg_score = round(sum(quiz["score"] for quiz in course_attempts) / attempt_count, 2)
+
+        course_stats.append({
+            "course_code": course["course_code"],
+            "course_title": course["course_title"],
+            "attempt_count": attempt_count,
+            "participant_count": participant_count,
+            "average_score": avg_score
+        })
+
+    for quiz in lecturer_quiz_sessions:
+        student_id = quiz["student_id"]
+
+        if student_id not in student_stats:
+            student_stats[student_id] = {
+                "student_name": quiz.get("student_name", f"Student {student_id}"),
+                "attempts": 0,
+                "scores": []
+            }
+
+        student_stats[student_id]["attempts"] += 1
+        student_stats[student_id]["scores"].append(quiz["score"])
+
+        for response in quiz["responses"]:
+            if not response["is_correct"]:
+                topic = response.get("topic", "Unknown Topic")
+                topic_gap_counter[topic] = topic_gap_counter.get(topic, 0) + 1
+
+    student_performance = []
+    for student_id, data in student_stats.items():
+        avg = round(sum(data["scores"]) / len(data["scores"]), 2) if data["scores"] else 0
+        student_performance.append({
+            "student_name": data["student_name"],
+            "attempts": data["attempts"],
+            "average_score": avg
+        })
+
+    student_performance.sort(key=lambda x: x["average_score"], reverse=True)
+
+    topic_gaps = [
+        {"topic": topic, "wrong_count": count}
+        for topic, count in topic_gap_counter.items()
+    ]
+    topic_gaps.sort(key=lambda x: x["wrong_count"], reverse=True)
+
+    total_attempts = len(lecturer_quiz_sessions)
+    overall_average = round(
+        sum(quiz["score"] for quiz in lecturer_quiz_sessions) / total_attempts,
+        2
+    ) if total_attempts > 0 else 0
+
+    total_participants = len(set(quiz["student_id"] for quiz in lecturer_quiz_sessions))
+
+    return render_template(
+        "lecturer/analytics.html",
+        user=lecturer,
+        course_stats=course_stats,
+        student_performance=student_performance,
+        topic_gaps=topic_gaps,
+        total_attempts=total_attempts,
+        overall_average=overall_average,
+        total_participants=total_participants
     )
 
 
