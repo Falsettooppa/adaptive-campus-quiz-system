@@ -26,26 +26,34 @@
           <a href="{{ url_for('main.view_questions') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700">
             View Questions
           </a>
+          <a href="{{ url_for('main.lecturer_analytics') }}" class="bg-amber-500 text-white px-4 py-2 rounded-xl hover:bg-amber-600">
+            View Analytics
+          </a>
           <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">
             Logout
           </a>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
           <h3 class="text-lg font-semibold text-slate-700">Total Courses</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-3">{{ courses|length }}</p>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ total_courses }}</p>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Question Bank</h3>
-          <p class="text-slate-500 mt-2">Manage adaptive quiz questions by course and difficulty.</p>
+          <h3 class="text-lg font-semibold text-slate-700">Quiz Attempts</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ total_attempts }}</p>
         </div>
 
         <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-slate-700">Analytics</h3>
-          <p class="text-slate-500 mt-2">Performance analytics will be connected after the quiz engine is built.</p>
+          <h3 class="text-lg font-semibold text-slate-700">Average Score</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ average_score }}%</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Participants</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ total_students }}</p>
         </div>
       </div>
 

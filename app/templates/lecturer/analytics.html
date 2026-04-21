@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lecturer Analytics</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div>
+          <h1 class="text-3xl font-bold text-slate-800">Lecturer Analytics</h1>
+          <p class="text-slate-600 mt-1">Performance overview for your courses</p>
+        </div>
+        <a href="{{ url_for('main.lecturer_dashboard') }}" class="text-blue-600 hover:underline">
+          Back to Dashboard
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Total Attempts</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ total_attempts }}</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Overall Average</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ overall_average }}%</p>
+        </div>
+
+        <div class="bg-slate-50 rounded-xl p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-slate-700">Participants</h3>
+          <p class="text-3xl font-bold text-slate-900 mt-3">{{ total_participants }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      <div class="bg-white rounded-2xl shadow-xl p-8">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6">Course Statistics</h2>
+
+        {% if course_stats %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <thead class="bg-slate-100">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Attempts</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Participants</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Average</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for stat in course_stats %}
+                  <tr class="border-t border-slate-200">
+                    <td class="px-4 py-3 text-slate-700">
+                      <div class="font-semibold">{{ stat.course_code }}</div>
+                      <div class="text-sm text-slate-500">{{ stat.course_title }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">{{ stat.attempt_count }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ stat.participant_count }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ stat.average_score }}%</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="bg-slate-50 rounded-xl p-6 text-slate-500">
+            No course analytics yet.
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-xl p-8">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6">Knowledge Gaps</h2>
+
+        {% if topic_gaps %}
+          <div class="space-y-4">
+            {% for gap in topic_gaps %}
+              <div class="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                <div class="flex items-center justify-between">
+                  <span class="font-semibold text-slate-800">{{ gap.topic }}</span>
+                  <span class="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-full">
+                    {{ gap.wrong_count }} wrong answer{{ '' if gap.wrong_count == 1 else 's' }}
+                  </span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="bg-slate-50 rounded-xl p-6 text-slate-500">
+            No knowledge gap data yet.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl p-8 mt-8">
+      <h2 class="text-2xl font-bold text-slate-800 mb-6">Student Performance</h2>
+
+      {% if student_performance %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <thead class="bg-slate-100">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Student</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Attempts</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Average Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in student_performance %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-4 py-3 text-slate-700">{{ student.student_name }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ student.attempts }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ student.average_score }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="bg-slate-50 rounded-xl p-6 text-slate-500">
+          No student performance data yet.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
