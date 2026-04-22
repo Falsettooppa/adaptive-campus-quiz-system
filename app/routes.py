@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, session, request, redirect, url_for, flash
-from app.auth import login_required
+from app.auth import login_required, users
 from app.store import courses, questions, quiz_sessions
 
 main = Blueprint("main", __name__)
@@ -325,7 +325,7 @@ def lecturer_analytics():
                 topic_gap_counter[topic] = topic_gap_counter.get(topic, 0) + 1
 
     student_performance = []
-    for student_id, data in student_stats.items():
+    for _, data in student_stats.items():
         avg = round(sum(data["scores"]) / len(data["scores"]), 2) if data["scores"] else 0
         student_performance.append({
             "student_name": data["student_name"],
@@ -364,7 +364,139 @@ def lecturer_analytics():
 @main.route("/admin/dashboard")
 @login_required(role="admin")
 def admin_dashboard():
-    return render_template("admin/dashboard.html", user=session.get("user"))
+    total_users = len(users)
+    total_students = len([u for u in users if u["role"] == "student"])
+    total_lecturers = len([u for u in users if u["role"] == "lecturer"])
+    total_admins = len([u for u in users if u["role"] == "admin"])
+
+    total_courses = len(courses)
+    total_questions = len(questions)
+    total_quiz_attempts = len([q for q in quiz_sessions if q["status"] == "completed"])
+
+    overall_average = 0
+    completed_sessions = [q for q in quiz_sessions if q["status"] == "completed"]
+    if completed_sessions:
+        overall_average = round(sum(q["score"] for q in completed_sessions) / len(completed_sessions), 2)
+
+    return render_template(
+        "admin/dashboard.html",
+        user=session.get("user"),
+        total_users=total_users,
+        total_students=total_students,
+        total_lecturers=total_lecturers,
+        total_admins=total_admins,
+        total_courses=total_courses,
+        total_questions=total_questions,
+        total_quiz_attempts=total_quiz_attempts,
+        overall_average=overall_average
+    )
+
+
+@main.route("/admin/users")
+@login_required(role="admin")
+def admin_users():
+    return render_template(
+        "admin/users.html",
+        user=session.get("user"),
+        users=users
+    )
+
+
+@main.route("/admin/users/<int:user_id>/role", methods=["POST"])
+@login_required(role="admin")
+def update_user_role(user_id):
+    new_role = request.form.get("role", "").strip().lower()
+    valid_roles = ["student", "lecturer", "admin"]
+
+    if new_role not in valid_roles:
+        flash("Invalid role selected.", "error")
+        return redirect(url_for("main.admin_users"))
+
+    target_user = next((u for u in users if u["id"] == user_id), None)
+    if not target_user:
+        flash("User not found.", "error")
+        return redirect(url_for("main.admin_users"))
+
+    target_user["role"] = new_role
+
+    if "user" in session and session["user"]["id"] == user_id:
+        session["user"]["role"] = new_role
+
+    flash("User role updated successfully.", "success")
+    return redirect(url_for("main.admin_users"))
+
+
+@main.route("/admin/courses")
+@login_required(role="admin")
+def admin_courses():
+    lecturer_map = {u["id"]: u for u in users if u["role"] in ["lecturer", "admin"]}
+
+    enriched_courses = []
+    for course in courses:
+        course_questions = [q for q in questions if q["course_id"] == course["id"]]
+        course_attempts = [q for q in quiz_sessions if q["course_id"] == course["id"] and q["status"] == "completed"]
+
+        enriched_courses.append({
+            "id": course["id"],
+            "course_code": course["course_code"],
+            "course_title": course["course_title"],
+            "lecturer_name": lecturer_map.get(course["lecturer_id"], {}).get("full_name", "Unassigned"),
+            "question_count": len(course_questions),
+            "attempt_count": len(course_attempts)
+        })
+
+    return render_template(
+        "admin/courses.html",
+        user=session.get("user"),
+        courses=enriched_courses
+    )
+
+
+@main.route("/admin/reports")
+@login_required(role="admin")
+def admin_reports():
+    completed_sessions = [q for q in quiz_sessions if q["status"] == "completed"]
+
+    course_reports = []
+    for course in courses:
+        course_sessions = [q for q in completed_sessions if q["course_id"] == course["id"]]
+        participants = len(set(q["student_id"] for q in course_sessions))
+        avg_score = round(sum(q["score"] for q in course_sessions) / len(course_sessions), 2) if course_sessions else 0
+
+        course_reports.append({
+            "course_code": course["course_code"],
+            "course_title": course["course_title"],
+            "participants": participants,
+            "attempts": len(course_sessions),
+            "average_score": avg_score
+        })
+
+    top_students_map = {}
+    for q in completed_sessions:
+        sid = q["student_id"]
+        if sid not in top_students_map:
+            top_students_map[sid] = {
+                "student_name": q.get("student_name", f"Student {sid}"),
+                "scores": []
+            }
+        top_students_map[sid]["scores"].append(q["score"])
+
+    top_students = []
+    for _, data in top_students_map.items():
+        avg_score = round(sum(data["scores"]) / len(data["scores"]), 2)
+        top_students.append({
+            "student_name": data["student_name"],
+            "average_score": avg_score
+        })
+
+    top_students.sort(key=lambda x: x["average_score"], reverse=True)
+
+    return render_template(
+        "admin/reports.html",
+        user=session.get("user"),
+        course_reports=course_reports,
+        top_students=top_students[:10]
+    )
 
 
 @main.route("/lecturer/courses/create", methods=["GET", "POST"])
@@ -419,10 +551,7 @@ def create_question():
             flash("All required fields must be filled.", "error")
             return redirect(url_for("main.create_question"))
 
-        valid_course = next(
-            (course for course in lecturer_courses if str(course["id"]) == course_id),
-            None
-        )
+        valid_course = next((course for course in lecturer_courses if str(course["id"]) == course_id), None)
 
         if not valid_course:
             flash("Invalid course selected.", "error")
