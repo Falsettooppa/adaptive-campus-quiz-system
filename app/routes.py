@@ -1,15 +1,17 @@
 from flask import Blueprint, render_template, session, request, redirect, url_for, flash
-from app.auth import login_required, users
-from app.store import courses, questions, quiz_sessions
+from bson import ObjectId
+from app.auth import login_required
+from app.db import get_db
 
 main = Blueprint("main", __name__)
 
 
-def get_next_question(course_id, answered_question_ids, current_difficulty):
-    available_questions = [
-        q for q in questions
-        if q["course_id"] == course_id and q["id"] not in answered_question_ids
-    ]
+
+def get_next_question(db, course_id, answered_question_ids, current_difficulty):
+    available_questions = list(db.questions.find({
+        "course_id": str(course_id),
+        "_id": {"$nin": [ObjectId(qid) for qid in answered_question_ids]}
+    }))
 
     if not available_questions:
         return None
@@ -57,6 +59,14 @@ def estimate_ability(correct_count, total_answered):
         return "Intermediate"
     return "Beginner"
 
+    percentage = (correct_count / total_answered) * 100
+
+    if percentage >= 80:
+        return "Advanced"
+    elif percentage >= 50:
+        return "Intermediate"
+    return "Beginner"
+
 
 @main.route("/")
 def home():
@@ -66,13 +76,14 @@ def home():
 @main.route("/student/dashboard")
 @login_required(role="student")
 def student_dashboard():
+    db = get_db()
     student = session.get("user")
-    available_courses = courses
 
-    student_attempts = [
-        quiz for quiz in quiz_sessions
-        if quiz["student_id"] == student["id"] and quiz["status"] == "completed"
-    ]
+    available_courses = list(db.courses.find())
+    student_attempts = list(db.quiz_sessions.find({
+        "student_id": student["id"],
+        "status": "completed"
+    }))
 
     total_attempts = len(student_attempts)
     average_score = 0
@@ -81,6 +92,12 @@ def student_dashboard():
         average_score = sum(quiz["score"] for quiz in student_attempts) / total_attempts
 
     latest_ability = student_attempts[-1]["ability_estimate"] if student_attempts else "Beginner"
+
+    for course in available_courses:
+        course["id"] = str(course["_id"])
+
+    for attempt in student_attempts:
+        attempt["id"] = str(attempt["_id"])
 
     return render_template(
         "student/dashboard.html",
@@ -364,19 +381,24 @@ def lecturer_analytics():
 @main.route("/admin/dashboard")
 @login_required(role="admin")
 def admin_dashboard():
-    total_users = len(users)
-    total_students = len([u for u in users if u["role"] == "student"])
-    total_lecturers = len([u for u in users if u["role"] == "lecturer"])
-    total_admins = len([u for u in users if u["role"] == "admin"])
+    db = get_db()
 
-    total_courses = len(courses)
-    total_questions = len(questions)
-    total_quiz_attempts = len([q for q in quiz_sessions if q["status"] == "completed"])
+    total_users = db.users.count_documents({})
+    total_students = db.users.count_documents({"role": "student"})
+    total_lecturers = db.users.count_documents({"role": "lecturer"})
+    total_admins = db.users.count_documents({"role": "admin"})
 
+    total_courses = db.courses.count_documents({})
+    total_questions = db.questions.count_documents({})
+    total_quiz_attempts = db.quiz_sessions.count_documents({"status": "completed"})
+
+    completed_sessions = list(db.quiz_sessions.find({"status": "completed"}))
     overall_average = 0
-    completed_sessions = [q for q in quiz_sessions if q["status"] == "completed"]
     if completed_sessions:
-        overall_average = round(sum(q["score"] for q in completed_sessions) / len(completed_sessions), 2)
+        overall_average = round(
+            sum(q.get("score", 0) for q in completed_sessions) / len(completed_sessions),
+            2
+        )
 
     return render_template(
         "admin/dashboard.html",
@@ -502,6 +524,8 @@ def admin_reports():
 @main.route("/lecturer/courses/create", methods=["GET", "POST"])
 @login_required(role="lecturer")
 def create_course():
+    db = get_db()
+
     if request.method == "POST":
         course_code = request.form.get("course_code", "").strip().upper()
         course_title = request.form.get("course_title", "").strip()
@@ -510,30 +534,31 @@ def create_course():
             flash("Course code and title are required.", "error")
             return redirect(url_for("main.create_course"))
 
-        existing_course = next((course for course in courses if course["course_code"] == course_code), None)
+        existing_course = db.courses.find_one({"course_code": course_code})
         if existing_course:
             flash("Course code already exists.", "error")
             return redirect(url_for("main.create_course"))
 
-        new_course = {
-            "id": len(courses) + 1,
+        db.courses.insert_one({
             "course_code": course_code,
             "course_title": course_title,
             "lecturer_id": session["user"]["id"]
-        }
+        })
 
-        courses.append(new_course)
         flash("Course created successfully.", "success")
         return redirect(url_for("main.lecturer_dashboard"))
 
     return render_template("lecturer/create_course.html", user=session.get("user"))
 
-
 @main.route("/lecturer/questions/create", methods=["GET", "POST"])
 @login_required(role="lecturer")
 def create_question():
+    db = get_db()
     lecturer = session.get("user")
-    lecturer_courses = [course for course in courses if course["lecturer_id"] == lecturer["id"]]
+
+    lecturer_courses = list(db.courses.find({"lecturer_id": lecturer["id"]}))
+    for course in lecturer_courses:
+        course["id"] = str(course["_id"])
 
     if request.method == "POST":
         course_id = request.form.get("course_id", "").strip()
@@ -551,19 +576,17 @@ def create_question():
             flash("All required fields must be filled.", "error")
             return redirect(url_for("main.create_question"))
 
-        valid_course = next((course for course in lecturer_courses if str(course["id"]) == course_id), None)
+        valid_course = db.courses.find_one({
+            "_id": ObjectId(course_id),
+            "lecturer_id": lecturer["id"]
+        })
 
         if not valid_course:
             flash("Invalid course selected.", "error")
             return redirect(url_for("main.create_question"))
 
-        if correct_option not in ["A", "B", "C", "D"]:
-            flash("Correct option must be A, B, C, or D.", "error")
-            return redirect(url_for("main.create_question"))
-
-        new_question = {
-            "id": len(questions) + 1,
-            "course_id": int(course_id),
+        db.questions.insert_one({
+            "course_id": course_id,
             "topic": topic,
             "difficulty_level": difficulty_level,
             "question_text": question_text,
@@ -574,9 +597,8 @@ def create_question():
             "correct_option": correct_option,
             "explanation": explanation,
             "lecturer_id": lecturer["id"]
-        }
+        })
 
-        questions.append(new_question)
         flash("Question added successfully.", "success")
         return redirect(url_for("main.view_questions"))
 
@@ -590,16 +612,24 @@ def create_question():
 @main.route("/lecturer/questions")
 @login_required(role="lecturer")
 def view_questions():
+    db = get_db()
     lecturer = session.get("user")
-    lecturer_courses = [course for course in courses if course["lecturer_id"] == lecturer["id"]]
-    lecturer_course_ids = [course["id"] for course in lecturer_courses]
 
-    lecturer_questions = [
-        question for question in questions
-        if question["course_id"] in lecturer_course_ids
-    ]
+    lecturer_courses = list(db.courses.find({"lecturer_id": lecturer["id"]}))
+    lecturer_course_ids = [str(course["_id"]) for course in lecturer_courses]
 
-    course_map = {course["id"]: course for course in lecturer_courses}
+    lecturer_questions = list(db.questions.find({
+        "course_id": {"$in": lecturer_course_ids}
+    }))
+
+    course_map = {}
+    for course in lecturer_courses:
+        cid = str(course["_id"])
+        course["id"] = cid
+        course_map[cid] = course
+
+    for question in lecturer_questions:
+        question["id"] = str(question["_id"])
 
     return render_template(
         "lecturer/view_questions.html",
