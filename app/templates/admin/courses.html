@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Courses</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white rounded-2xl shadow-xl p-8">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">All Courses</h1>
+        <a href="{{ url_for('main.admin_dashboard') }}" class="text-blue-600 hover:underline">Back</a>
+      </div>
+
+      {% if courses %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <thead class="bg-slate-100">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course Code</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course Title</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Lecturer</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Questions</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Attempts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for course in courses %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-4 py-3 text-slate-700">{{ course.course_code }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ course.course_title }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ course.lecturer_name }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ course.question_count }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ course.attempt_count }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="bg-slate-50 rounded-xl p-6 text-slate-500">No courses found.</div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
