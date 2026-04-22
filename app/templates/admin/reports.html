@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Institutional Reports</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+
+    <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Institutional Reports</h1>
+        <a href="{{ url_for('main.admin_dashboard') }}" class="text-blue-600 hover:underline">Back</a>
+      </div>
+
+      <h2 class="text-xl font-bold text-slate-800 mb-4">Course-Level Outcomes</h2>
+
+      {% if course_reports %}
+        <div class="overflow-x-auto mb-8">
+          <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <thead class="bg-slate-100">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Course</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Participants</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Attempts</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Average Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for report in course_reports %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-4 py-3 text-slate-700">
+                    <div class="font-semibold">{{ report.course_code }}</div>
+                    <div class="text-sm text-slate-500">{{ report.course_title }}</div>
+                  </td>
+                  <td class="px-4 py-3 text-slate-700">{{ report.participants }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ report.attempts }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ report.average_score }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="bg-slate-50 rounded-xl p-6 text-slate-500 mb-8">No course report data yet.</div>
+      {% endif %}
+
+      <h2 class="text-xl font-bold text-slate-800 mb-4">Top Student Performance</h2>
+
+      {% if top_students %}
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <thead class="bg-slate-100">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Student</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Average Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in top_students %}
+                <tr class="border-t border-slate-200">
+                  <td class="px-4 py-3 text-slate-700">{{ student.student_name }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ student.average_score }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="bg-slate-50 rounded-xl p-6 text-slate-500">No student report data yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
