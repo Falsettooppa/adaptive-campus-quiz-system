@@ -6,12 +6,31 @@ from app.db import get_db
 main = Blueprint("main", __name__)
 
 
+def safe_object_id(value):
+    try:
+        return ObjectId(value)
+    except Exception:
+        return None
+
+
+def serialize_doc(doc):
+    if doc and "_id" in doc:
+        doc["id"] = str(doc["_id"])
+    return doc
+
 
 def get_next_question(db, course_id, answered_question_ids, current_difficulty):
-    available_questions = list(db.questions.find({
-        "course_id": str(course_id),
-        "_id": {"$nin": [ObjectId(qid) for qid in answered_question_ids]}
-    }))
+    excluded_ids = []
+    for qid in answered_question_ids:
+        oid = safe_object_id(qid)
+        if oid:
+            excluded_ids.append(oid)
+
+    query = {"course_id": str(course_id)}
+    if excluded_ids:
+        query["_id"] = {"$nin": excluded_ids}
+
+    available_questions = list(db.questions.find(query))
 
     if not available_questions:
         return None
@@ -59,14 +78,6 @@ def estimate_ability(correct_count, total_answered):
         return "Intermediate"
     return "Beginner"
 
-    percentage = (correct_count / total_answered) * 100
-
-    if percentage >= 80:
-        return "Advanced"
-    elif percentage >= 50:
-        return "Intermediate"
-    return "Beginner"
-
 
 @main.route("/")
 def home():
@@ -89,15 +100,15 @@ def student_dashboard():
     average_score = 0
 
     if total_attempts > 0:
-        average_score = sum(quiz["score"] for quiz in student_attempts) / total_attempts
+        average_score = sum(quiz.get("score", 0) for quiz in student_attempts) / total_attempts
 
     latest_ability = student_attempts[-1]["ability_estimate"] if student_attempts else "Beginner"
 
     for course in available_courses:
-        course["id"] = str(course["_id"])
+        serialize_doc(course)
 
     for attempt in student_attempts:
-        attempt["id"] = str(attempt["_id"])
+        serialize_doc(attempt)
 
     return render_template(
         "student/dashboard.html",
@@ -110,26 +121,32 @@ def student_dashboard():
     )
 
 
-@main.route("/student/quiz/start/<int:course_id>")
+@main.route("/student/quiz/start/<course_id>")
 @login_required(role="student")
 def start_quiz(course_id):
-    course = next((c for c in courses if c["id"] == course_id), None)
+    db = get_db()
+
+    course_oid = safe_object_id(course_id)
+    if not course_oid:
+        flash("Invalid course ID.", "error")
+        return redirect(url_for("main.student_dashboard"))
+
+    course = db.courses.find_one({"_id": course_oid})
     if not course:
         flash("Course not found.", "error")
         return redirect(url_for("main.student_dashboard"))
 
-    course_questions = [q for q in questions if q["course_id"] == course_id]
+    course_questions = list(db.questions.find({"course_id": course_id}))
     if not course_questions:
         flash("No questions available for this course yet.", "error")
         return redirect(url_for("main.student_dashboard"))
 
-    first_question = get_next_question(course_id, [], "medium")
+    first_question = get_next_question(db, course_id, [], "medium")
     if not first_question:
         flash("Unable to start quiz.", "error")
         return redirect(url_for("main.student_dashboard"))
 
     quiz_session = {
-        "id": len(quiz_sessions) + 1,
         "student_id": session["user"]["id"],
         "student_name": session["user"]["full_name"],
         "course_id": course_id,
@@ -141,8 +158,8 @@ def start_quiz(course_id):
         "ability_estimate": "Beginner"
     }
 
-    quiz_sessions.append(quiz_session)
-    session["active_quiz_id"] = quiz_session["id"]
+    result = db.quiz_sessions.insert_one(quiz_session)
+    session["active_quiz_id"] = str(result.inserted_id)
 
     return redirect(url_for("main.take_quiz"))
 
@@ -150,67 +167,113 @@ def start_quiz(course_id):
 @main.route("/student/quiz", methods=["GET", "POST"])
 @login_required(role="student")
 def take_quiz():
+    db = get_db()
+
     active_quiz_id = session.get("active_quiz_id")
     if not active_quiz_id:
         flash("No active quiz session found.", "error")
         return redirect(url_for("main.student_dashboard"))
 
-    quiz = next((q for q in quiz_sessions if q["id"] == active_quiz_id), None)
+    quiz_oid = safe_object_id(active_quiz_id)
+    if not quiz_oid:
+        flash("Invalid quiz session.", "error")
+        return redirect(url_for("main.student_dashboard"))
+
+    quiz = db.quiz_sessions.find_one({"_id": quiz_oid})
     if not quiz or quiz["status"] != "in_progress":
         flash("Quiz session is no longer active.", "error")
         return redirect(url_for("main.student_dashboard"))
 
     if request.method == "POST":
-        question_id = int(request.form.get("question_id"))
+        question_id = request.form.get("question_id", "").strip()
         selected_option = request.form.get("selected_option", "").strip().upper()
 
-        question = next((q for q in questions if q["id"] == question_id), None)
+        question_oid = safe_object_id(question_id)
+        if not question_oid:
+            flash("Invalid question ID.", "error")
+            return redirect(url_for("main.take_quiz"))
+
+        question = db.questions.find_one({"_id": question_oid})
         if not question:
             flash("Question not found.", "error")
             return redirect(url_for("main.take_quiz"))
 
         is_correct = selected_option == question["correct_option"]
 
-        quiz["answered_questions"].append(question_id)
-        quiz["responses"].append({
+        answered_questions = quiz.get("answered_questions", [])
+        responses = quiz.get("responses", [])
+
+        answered_questions.append(question_id)
+        responses.append({
             "question_id": question_id,
             "question_text": question["question_text"],
             "selected_option": selected_option,
             "correct_option": question["correct_option"],
             "is_correct": is_correct,
-            "explanation": question["explanation"],
+            "explanation": question.get("explanation", ""),
             "difficulty_level": question["difficulty_level"],
-            "topic": question["topic"]
+            "topic": question.get("topic", "Unknown Topic")
         })
 
+        score = quiz.get("score", 0)
         if is_correct:
-            quiz["score"] += 1
+            score += 1
 
-        total_answered = len(quiz["responses"])
-        correct_count = sum(1 for response in quiz["responses"] if response["is_correct"])
+        total_answered = len(responses)
+        correct_count = sum(1 for response in responses if response["is_correct"])
 
-        quiz["ability_estimate"] = estimate_ability(correct_count, total_answered)
-        quiz["current_difficulty"] = update_difficulty(quiz["current_difficulty"], is_correct)
+        ability_estimate = estimate_ability(correct_count, total_answered)
+        current_difficulty = update_difficulty(quiz["current_difficulty"], is_correct)
 
-        course_questions = [q for q in questions if q["course_id"] == quiz["course_id"]]
-        if len(quiz["answered_questions"]) >= min(5, len(course_questions)):
-            quiz["status"] = "completed"
+        course_questions = list(db.questions.find({"course_id": quiz["course_id"]}))
+        max_questions = min(5, len(course_questions))
+
+        new_status = "in_progress"
+        if len(answered_questions) >= max_questions:
+            new_status = "completed"
+
+        db.quiz_sessions.update_one(
+            {"_id": quiz_oid},
+            {
+                "$set": {
+                    "answered_questions": answered_questions,
+                    "responses": responses,
+                    "score": score,
+                    "ability_estimate": ability_estimate,
+                    "current_difficulty": current_difficulty,
+                    "status": new_status
+                }
+            }
+        )
+
+        if new_status == "completed":
             session.pop("active_quiz_id", None)
             flash("Quiz completed successfully.", "success")
-            return redirect(url_for("main.quiz_result", quiz_id=quiz["id"]))
+            return redirect(url_for("main.quiz_result", quiz_id=active_quiz_id))
+
+        quiz = db.quiz_sessions.find_one({"_id": quiz_oid})
 
     next_question = get_next_question(
+        db,
         quiz["course_id"],
-        quiz["answered_questions"],
+        quiz.get("answered_questions", []),
         quiz["current_difficulty"]
     )
 
     if not next_question:
-        quiz["status"] = "completed"
+        db.quiz_sessions.update_one(
+            {"_id": quiz_oid},
+            {"$set": {"status": "completed"}}
+        )
         session.pop("active_quiz_id", None)
-        return redirect(url_for("main.quiz_result", quiz_id=quiz["id"]))
+        return redirect(url_for("main.quiz_result", quiz_id=active_quiz_id))
 
-    course = next((c for c in courses if c["id"] == quiz["course_id"]), None)
+    course = db.courses.find_one({"_id": safe_object_id(quiz["course_id"])})
+    serialize_doc(next_question)
+    if course:
+        serialize_doc(course)
+
+    total_questions = min(5, db.questions.count_documents({"course_id": quiz["course_id"]}))
 
     return render_template(
         "student/take_quiz.html",
@@ -218,29 +281,44 @@ def take_quiz():
         quiz=quiz,
         question=next_question,
         course=course,
-        question_number=len(quiz["responses"]) + 1,
-        total_questions=min(5, len([q for q in questions if q["course_id"] == quiz["course_id"]]))
+        question_number=len(quiz.get("responses", [])) + 1,
+        total_questions=total_questions
     )
 
 
-@main.route("/student/quiz/result/<int:quiz_id>")
+@main.route("/student/quiz/result/<quiz_id>")
 @login_required(role="student")
 def quiz_result(quiz_id):
-    quiz = next(
-        (q for q in quiz_sessions if q["id"] == quiz_id and q["student_id"] == session["user"]["id"]),
-        None
-    )
+    db = get_db()
+
+    quiz_oid = safe_object_id(quiz_id)
+    if not quiz_oid:
+        flash("Invalid quiz result ID.", "error")
+        return redirect(url_for("main.student_dashboard"))
+
+    quiz = db.quiz_sessions.find_one({
+        "_id": quiz_oid,
+        "student_id": session["user"]["id"]
+    })
 
     if not quiz:
         flash("Quiz result not found.", "error")
         return redirect(url_for("main.student_dashboard"))
 
-    total_questions = len(quiz["responses"])
-    correct_answers = sum(1 for response in quiz["responses"] if response["is_correct"])
+    total_questions = len(quiz.get("responses", []))
+    correct_answers = sum(1 for response in quiz.get("responses", []) if response["is_correct"])
     wrong_answers = total_questions - correct_answers
     percentage = round((correct_answers / total_questions) * 100, 2) if total_questions > 0 else 0
 
-    course = next((c for c in courses if c["id"] == quiz["course_id"]), None)
+    course = db.courses.find_one({"_id": safe_object_id(quiz["course_id"])})
+    if course:
+        serialize_doc(course)
+
+    db.quiz_sessions.update_one(
+        {"_id": quiz_oid},
+        {"$set": {"score": percentage, "status": "completed"}}
+    )
+
     quiz["score"] = percentage
 
     return render_template(
@@ -258,14 +336,16 @@ def quiz_result(quiz_id):
 @main.route("/lecturer/dashboard")
 @login_required(role="lecturer")
 def lecturer_dashboard():
+    db = get_db()
     lecturer = session.get("user")
-    lecturer_courses = [course for course in courses if course["lecturer_id"] == lecturer["id"]]
-    lecturer_course_ids = [course["id"] for course in lecturer_courses]
 
-    lecturer_quiz_sessions = [
-        quiz for quiz in quiz_sessions
-        if quiz["course_id"] in lecturer_course_ids and quiz["status"] == "completed"
-    ]
+    lecturer_courses = list(db.courses.find({"lecturer_id": lecturer["id"]}))
+    lecturer_course_ids = [str(course["_id"]) for course in lecturer_courses]
+
+    lecturer_quiz_sessions = list(db.quiz_sessions.find({
+        "course_id": {"$in": lecturer_course_ids},
+        "status": "completed"
+    }))
 
     total_courses = len(lecturer_courses)
     total_attempts = len(lecturer_quiz_sessions)
@@ -273,11 +353,14 @@ def lecturer_dashboard():
     average_score = 0
     if total_attempts > 0:
         average_score = round(
-            sum(quiz["score"] for quiz in lecturer_quiz_sessions) / total_attempts,
+            sum(quiz.get("score", 0) for quiz in lecturer_quiz_sessions) / total_attempts,
             2
         )
 
     total_students = len(set(quiz["student_id"] for quiz in lecturer_quiz_sessions))
+
+    for course in lecturer_courses:
+        serialize_doc(course)
 
     return render_template(
         "lecturer/dashboard.html",
@@ -293,27 +376,30 @@ def lecturer_dashboard():
 @main.route("/lecturer/analytics")
 @login_required(role="lecturer")
 def lecturer_analytics():
+    db = get_db()
     lecturer = session.get("user")
-    lecturer_courses = [course for course in courses if course["lecturer_id"] == lecturer["id"]]
-    lecturer_course_ids = [course["id"] for course in lecturer_courses]
 
-    lecturer_quiz_sessions = [
-        quiz for quiz in quiz_sessions
-        if quiz["course_id"] in lecturer_course_ids and quiz["status"] == "completed"
-    ]
+    lecturer_courses = list(db.courses.find({"lecturer_id": lecturer["id"]}))
+    lecturer_course_ids = [str(course["_id"]) for course in lecturer_courses]
+
+    lecturer_quiz_sessions = list(db.quiz_sessions.find({
+        "course_id": {"$in": lecturer_course_ids},
+        "status": "completed"
+    }))
 
     course_stats = []
     topic_gap_counter = {}
     student_stats = {}
 
     for course in lecturer_courses:
-        course_attempts = [quiz for quiz in lecturer_quiz_sessions if quiz["course_id"] == course["id"]]
+        course_id = str(course["_id"])
+        course_attempts = [quiz for quiz in lecturer_quiz_sessions if quiz["course_id"] == course_id]
         attempt_count = len(course_attempts)
         participant_count = len(set(quiz["student_id"] for quiz in course_attempts))
 
         avg_score = 0
         if attempt_count > 0:
-            avg_score = round(sum(quiz["score"] for quiz in course_attempts) / attempt_count, 2)
+            avg_score = round(sum(quiz.get("score", 0) for quiz in course_attempts) / attempt_count, 2)
 
         course_stats.append({
             "course_code": course["course_code"],
@@ -334,9 +420,9 @@ def lecturer_analytics():
             }
 
         student_stats[student_id]["attempts"] += 1
-        student_stats[student_id]["scores"].append(quiz["score"])
+        student_stats[student_id]["scores"].append(quiz.get("score", 0))
 
-        for response in quiz["responses"]:
+        for response in quiz.get("responses", []):
             if not response["is_correct"]:
                 topic = response.get("topic", "Unknown Topic")
                 topic_gap_counter[topic] = topic_gap_counter.get(topic, 0) + 1
@@ -352,15 +438,12 @@ def lecturer_analytics():
 
     student_performance.sort(key=lambda x: x["average_score"], reverse=True)
 
-    topic_gaps = [
-        {"topic": topic, "wrong_count": count}
-        for topic, count in topic_gap_counter.items()
-    ]
+    topic_gaps = [{"topic": topic, "wrong_count": count} for topic, count in topic_gap_counter.items()]
     topic_gaps.sort(key=lambda x: x["wrong_count"], reverse=True)
 
     total_attempts = len(lecturer_quiz_sessions)
     overall_average = round(
-        sum(quiz["score"] for quiz in lecturer_quiz_sessions) / total_attempts,
+        sum(quiz.get("score", 0) for quiz in lecturer_quiz_sessions) / total_attempts,
         2
     ) if total_attempts > 0 else 0
 
@@ -417,6 +500,12 @@ def admin_dashboard():
 @main.route("/admin/users")
 @login_required(role="admin")
 def admin_users():
+    db = get_db()
+    users = list(db.users.find({}))
+
+    for member in users:
+        serialize_doc(member)
+
     return render_template(
         "admin/users.html",
         user=session.get("user"),
@@ -424,9 +513,10 @@ def admin_users():
     )
 
 
-@main.route("/admin/users/<int:user_id>/role", methods=["POST"])
+@main.route("/admin/users/<user_id>/role", methods=["POST"])
 @login_required(role="admin")
 def update_user_role(user_id):
+    db = get_db()
     new_role = request.form.get("role", "").strip().lower()
     valid_roles = ["student", "lecturer", "admin"]
 
@@ -434,12 +524,20 @@ def update_user_role(user_id):
         flash("Invalid role selected.", "error")
         return redirect(url_for("main.admin_users"))
 
-    target_user = next((u for u in users if u["id"] == user_id), None)
+    user_oid = safe_object_id(user_id)
+    if not user_oid:
+        flash("Invalid user ID.", "error")
+        return redirect(url_for("main.admin_users"))
+
+    target_user = db.users.find_one({"_id": user_oid})
     if not target_user:
         flash("User not found.", "error")
         return redirect(url_for("main.admin_users"))
 
-    target_user["role"] = new_role
+    db.users.update_one(
+        {"_id": user_oid},
+        {"$set": {"role": new_role}}
+    )
 
     if "user" in session and session["user"]["id"] == user_id:
         session["user"]["role"] = new_role
@@ -451,15 +549,24 @@ def update_user_role(user_id):
 @main.route("/admin/courses")
 @login_required(role="admin")
 def admin_courses():
-    lecturer_map = {u["id"]: u for u in users if u["role"] in ["lecturer", "admin"]}
+    db = get_db()
+
+    users = list(db.users.find({}))
+    courses = list(db.courses.find({}))
+    questions = list(db.questions.find({}))
+    quiz_sessions = list(db.quiz_sessions.find({"status": "completed"}))
+
+    lecturer_map = {str(u["_id"]): u for u in users if u["role"] in ["lecturer", "admin"]}
 
     enriched_courses = []
     for course in courses:
-        course_questions = [q for q in questions if q["course_id"] == course["id"]]
-        course_attempts = [q for q in quiz_sessions if q["course_id"] == course["id"] and q["status"] == "completed"]
+        cid = str(course["_id"])
+
+        course_questions = [q for q in questions if q["course_id"] == cid]
+        course_attempts = [q for q in quiz_sessions if q["course_id"] == cid]
 
         enriched_courses.append({
-            "id": course["id"],
+            "id": cid,
             "course_code": course["course_code"],
             "course_title": course["course_title"],
             "lecturer_name": lecturer_map.get(course["lecturer_id"], {}).get("full_name", "Unassigned"),
@@ -477,13 +584,17 @@ def admin_courses():
 @main.route("/admin/reports")
 @login_required(role="admin")
 def admin_reports():
-    completed_sessions = [q for q in quiz_sessions if q["status"] == "completed"]
+    db = get_db()
+
+    completed_sessions = list(db.quiz_sessions.find({"status": "completed"}))
+    courses = list(db.courses.find({}))
 
     course_reports = []
     for course in courses:
-        course_sessions = [q for q in completed_sessions if q["course_id"] == course["id"]]
+        course_id = str(course["_id"])
+        course_sessions = [q for q in completed_sessions if q["course_id"] == course_id]
         participants = len(set(q["student_id"] for q in course_sessions))
-        avg_score = round(sum(q["score"] for q in course_sessions) / len(course_sessions), 2) if course_sessions else 0
+        avg_score = round(sum(q.get("score", 0) for q in course_sessions) / len(course_sessions), 2) if course_sessions else 0
 
         course_reports.append({
             "course_code": course["course_code"],
@@ -501,7 +612,7 @@ def admin_reports():
                 "student_name": q.get("student_name", f"Student {sid}"),
                 "scores": []
             }
-        top_students_map[sid]["scores"].append(q["score"])
+        top_students_map[sid]["scores"].append(q.get("score", 0))
 
     top_students = []
     for _, data in top_students_map.items():
@@ -550,6 +661,7 @@ def create_course():
 
     return render_template("lecturer/create_course.html", user=session.get("user"))
 
+
 @main.route("/lecturer/questions/create", methods=["GET", "POST"])
 @login_required(role="lecturer")
 def create_question():
@@ -558,7 +670,7 @@ def create_question():
 
     lecturer_courses = list(db.courses.find({"lecturer_id": lecturer["id"]}))
     for course in lecturer_courses:
-        course["id"] = str(course["_id"])
+        serialize_doc(course)
 
     if request.method == "POST":
         course_id = request.form.get("course_id", "").strip()
@@ -577,7 +689,7 @@ def create_question():
             return redirect(url_for("main.create_question"))
 
         valid_course = db.courses.find_one({
-            "_id": ObjectId(course_id),
+            "_id": safe_object_id(course_id),
             "lecturer_id": lecturer["id"]
         })
 
@@ -625,11 +737,11 @@ def view_questions():
     course_map = {}
     for course in lecturer_courses:
         cid = str(course["_id"])
-        course["id"] = cid
+        serialize_doc(course)
         course_map[cid] = course
 
     for question in lecturer_questions:
-        question["id"] = str(question["_id"])
+        serialize_doc(question)
 
     return render_template(
         "lecturer/view_questions.html",
