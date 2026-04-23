@@ -31,7 +31,7 @@ def seed_users():
     lecturer_exists = db.users.find_one({"email": "lecturer@example.com"})
 
     if not admin_exists:
-        db.users.insert_one({
+        result = db.users.insert_one({
             "full_name": "System Administrator",
             "matric_number": None,
             "email": "admin@example.com",
@@ -39,13 +39,27 @@ def seed_users():
             "role": "admin"
         })
 
+        db.notifications.insert_one({
+            "user_id": str(result.inserted_id),
+            "title": "Welcome",
+            "message": "Your admin account has been created successfully.",
+            "is_read": False
+        })
+
     if not lecturer_exists:
-        db.users.insert_one({
+        result = db.users.insert_one({
             "full_name": "Dr. John Lecturer",
             "matric_number": None,
             "email": "lecturer@example.com",
             "password_hash": generate_password_hash("lecturer123"),
             "role": "lecturer"
+        })
+
+        db.notifications.insert_one({
+            "user_id": str(result.inserted_id),
+            "title": "Welcome",
+            "message": "Your lecturer account has been created successfully.",
+            "is_read": False
         })
 
     flash("Default users seeded successfully.", "success")
@@ -79,7 +93,14 @@ def register():
             "role": "student"
         }
 
-        db.users.insert_one(new_user)
+        result = db.users.insert_one(new_user)
+
+        db.notifications.insert_one({
+            "user_id": str(result.inserted_id),
+            "title": "Welcome",
+            "message": "Your student account has been created successfully.",
+            "is_read": False
+        })
 
         flash("Registration successful. Please log in.", "success")
         return redirect(url_for("auth.login"))

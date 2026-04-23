@@ -19,6 +19,28 @@ def serialize_doc(doc):
     return doc
 
 
+def create_notification(db, user_id, title, message):
+    db.notifications.insert_one({
+        "user_id": str(user_id),
+        "title": title,
+        "message": message,
+        "is_read": False
+    })
+
+
+def get_user_notifications(db, user_id, limit=5):
+    notifications = list(
+        db.notifications.find({"user_id": str(user_id)})
+        .sort("_id", -1)
+        .limit(limit)
+    )
+
+    for note in notifications:
+        serialize_doc(note)
+
+    return notifications
+
+
 def get_next_question(db, course_id, answered_question_ids, current_difficulty):
     excluded_ids = []
     for qid in answered_question_ids:
@@ -91,10 +113,12 @@ def student_dashboard():
     student = session.get("user")
 
     available_courses = list(db.courses.find())
-    student_attempts = list(db.quiz_sessions.find({
-        "student_id": student["id"],
-        "status": "completed"
-    }))
+    student_attempts = list(
+        db.quiz_sessions.find({
+            "student_id": student["id"],
+            "status": "completed"
+        }).sort("_id", -1)
+    )
 
     total_attempts = len(student_attempts)
     average_score = 0
@@ -102,7 +126,7 @@ def student_dashboard():
     if total_attempts > 0:
         average_score = sum(quiz.get("score", 0) for quiz in student_attempts) / total_attempts
 
-    latest_ability = student_attempts[-1]["ability_estimate"] if student_attempts else "Beginner"
+    latest_ability = student_attempts[0]["ability_estimate"] if student_attempts else "Beginner"
 
     for course in available_courses:
         serialize_doc(course)
@@ -155,7 +179,8 @@ def start_quiz(course_id):
         "answered_questions": [],
         "responses": [],
         "score": 0,
-        "ability_estimate": "Beginner"
+        "ability_estimate": "Beginner",
+        "notified": False
     }
 
     result = db.quiz_sessions.insert_one(quiz_session)
@@ -179,7 +204,10 @@ def take_quiz():
         flash("Invalid quiz session.", "error")
         return redirect(url_for("main.student_dashboard"))
 
-    quiz = db.quiz_sessions.find_one({"_id": quiz_oid})
+    quiz = db.quiz_sessions.find_one({
+        "_id": quiz_oid,
+        "student_id": session["user"]["id"]
+    })
     if not quiz or quiz["status"] != "in_progress":
         flash("Quiz session is no longer active.", "error")
         return redirect(url_for("main.student_dashboard"))
@@ -251,7 +279,10 @@ def take_quiz():
             flash("Quiz completed successfully.", "success")
             return redirect(url_for("main.quiz_result", quiz_id=active_quiz_id))
 
-        quiz = db.quiz_sessions.find_one({"_id": quiz_oid})
+        quiz = db.quiz_sessions.find_one({
+            "_id": quiz_oid,
+            "student_id": session["user"]["id"]
+        })
 
     next_question = get_next_question(
         db,
@@ -318,6 +349,19 @@ def quiz_result(quiz_id):
         {"_id": quiz_oid},
         {"$set": {"score": percentage, "status": "completed"}}
     )
+
+    if not quiz.get("notified", False):
+        create_notification(
+            db,
+            session["user"]["id"],
+            "Quiz Completed",
+            f"You completed a quiz and scored {percentage}%."
+        )
+
+        db.quiz_sessions.update_one(
+            {"_id": quiz_oid},
+            {"$set": {"notified": True}}
+        )
 
     quiz["score"] = percentage
 
@@ -393,13 +437,16 @@ def lecturer_analytics():
 
     for course in lecturer_courses:
         course_id = str(course["_id"])
-        course_attempts = [quiz for quiz in lecturer_quiz_sessions if quiz["course_id"] == course_id]
-        attempt_count = len(course_attempts)
-        participant_count = len(set(quiz["student_id"] for quiz in course_attempts))
+        attempt_count = db.quiz_sessions.count_documents({
+            "course_id": course_id,
+            "status": "completed"
+        })
+        participant_count = len(set(
+            quiz["student_id"] for quiz in lecturer_quiz_sessions if quiz["course_id"] == course_id
+        ))
 
-        avg_score = 0
-        if attempt_count > 0:
-            avg_score = round(sum(quiz.get("score", 0) for quiz in course_attempts) / attempt_count, 2)
+        avg_source = [quiz.get("score", 0) for quiz in lecturer_quiz_sessions if quiz["course_id"] == course_id]
+        avg_score = round(sum(avg_source) / len(avg_source), 2) if avg_source else 0
 
         course_stats.append({
             "course_code": course["course_code"],
@@ -542,6 +589,13 @@ def update_user_role(user_id):
     if "user" in session and session["user"]["id"] == user_id:
         session["user"]["role"] = new_role
 
+    create_notification(
+        db,
+        user_id,
+        "Role Updated",
+        f"Your account role has been changed to {new_role}."
+    )
+
     flash("User role updated successfully.", "success")
     return redirect(url_for("main.admin_users"))
 
@@ -553,8 +607,6 @@ def admin_courses():
 
     users = list(db.users.find({}))
     courses = list(db.courses.find({}))
-    questions = list(db.questions.find({}))
-    quiz_sessions = list(db.quiz_sessions.find({"status": "completed"}))
 
     lecturer_map = {str(u["_id"]): u for u in users if u["role"] in ["lecturer", "admin"]}
 
@@ -562,16 +614,19 @@ def admin_courses():
     for course in courses:
         cid = str(course["_id"])
 
-        course_questions = [q for q in questions if q["course_id"] == cid]
-        course_attempts = [q for q in quiz_sessions if q["course_id"] == cid]
+        question_count = db.questions.count_documents({"course_id": cid})
+        attempt_count = db.quiz_sessions.count_documents({
+            "course_id": cid,
+            "status": "completed"
+        })
 
         enriched_courses.append({
             "id": cid,
             "course_code": course["course_code"],
             "course_title": course["course_title"],
             "lecturer_name": lecturer_map.get(course["lecturer_id"], {}).get("full_name", "Unassigned"),
-            "question_count": len(course_questions),
-            "attempt_count": len(course_attempts)
+            "question_count": question_count,
+            "attempt_count": attempt_count
         })
 
     return render_template(
@@ -656,6 +711,13 @@ def create_course():
             "lecturer_id": session["user"]["id"]
         })
 
+        create_notification(
+            db,
+            session["user"]["id"],
+            "Course Created",
+            f"{course_code} - {course_title} was created successfully."
+        )
+
         flash("Course created successfully.", "success")
         return redirect(url_for("main.lecturer_dashboard"))
 
@@ -711,6 +773,13 @@ def create_question():
             "lecturer_id": lecturer["id"]
         })
 
+        create_notification(
+            db,
+            lecturer["id"],
+            "Question Added",
+            f"A new {difficulty_level} question was added successfully."
+        )
+
         flash("Question added successfully.", "success")
         return redirect(url_for("main.view_questions"))
 
@@ -749,3 +818,43 @@ def view_questions():
         questions=lecturer_questions,
         course_map=course_map
     )
+
+
+@main.route("/notifications")
+@login_required()
+def notifications():
+    db = get_db()
+    user = session.get("user")
+
+    notifications = list(
+        db.notifications.find({"user_id": user["id"]}).sort("_id", -1)
+    )
+
+    for note in notifications:
+        serialize_doc(note)
+
+    return render_template(
+        "notifications/index.html",
+        user=user,
+        notifications=notifications
+    )
+
+
+@main.route("/notifications/<notification_id>/read", methods=["POST"])
+@login_required()
+def mark_notification_read(notification_id):
+    db = get_db()
+    user = session.get("user")
+
+    note_oid = safe_object_id(notification_id)
+    if not note_oid:
+        flash("Invalid notification.", "error")
+        return redirect(url_for("main.notifications"))
+
+    db.notifications.update_one(
+        {"_id": note_oid, "user_id": user["id"]},
+        {"$set": {"is_read": True}}
+    )
+
+    flash("Notification marked as read.", "success")
+    return redirect(url_for("main.notifications"))
