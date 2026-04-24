@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -23,6 +23,52 @@
             <a href="{{ url_for('main.lecturer_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
             <a href="{{ url_for('main.create_course') }}" class="text-slate-700 hover:text-slate-900">Courses</a>
             <a href="{{ url_for('main.create_question') }}" class="text-slate-700 hover:text-slate-900">Questions</a>
+            <a href="{{ url_for('main.lecturer_analytics') }}" class="text-slate-700 hover:text-slate-900">Analytics</a>
+          {% elif session["user"]["role"] == "admin" %}
+            <a href="{{ url_for('main.admin_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
+            <a href="{{ url_for('main.admin_users') }}" class="text-slate-700 hover:text-slate-900">Users</a>
+            <a href="{{ url_for('main.admin_courses') }}" class="text-slate-700 hover:text-slate-900">Courses</a>
+            <a href="{{ url_for('main.admin_reports') }}" class="text-slate-700 hover:text-slate-900">Reports</a>
+          {% endif %}
+
+          <a href="{{ url_for('main.notifications') }}" class="text-slate-700 hover:text-slate-900">Notifications</a>
+          <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">Logout</a>
+        </div>
+      </div>
+    </nav>
+  {% endif %}
+
+  <main class="max-w-7xl mx-auto px-6 py-10">
+    {% include 'partials/flash.html' %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Adaptive Campus Quiz System{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="bg-slate-100 min-h-screen">
+  {% if session.get("user") %}
+    <nav class="bg-white border-b border-slate-200 shadow-sm">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <a href="{{ url_for('main.home') }}" class="text-xl font-bold text-slate-800">
+          Adaptive Campus Quiz System
+        </a>
+
+        <div class="flex flex-wrap items-center gap-4 text-sm font-medium">
+          {% if session["user"]["role"] == "student" %}
+            <a href="{{ url_for('main.student_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
+          {% elif session["user"]["role"] == "lecturer" %}
+            <a href="{{ url_for('main.lecturer_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
+            <a href="{{ url_for('main.create_course') }}" class="text-slate-700 hover:text-slate-900">Create Course</a>
+            <a href="{{ url_for('main.create_question') }}" class="text-slate-700 hover:text-slate-900">Add Question</a>
+            <a href="{{ url_for('main.view_questions') }}" class="text-slate-700 hover:text-slate-900">Question Bank</a>
             <a href="{{ url_for('main.lecturer_analytics') }}" class="text-slate-700 hover:text-slate-900">Analytics</a>
           {% elif session["user"]["role"] == "admin" %}
             <a href="{{ url_for('main.admin_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>

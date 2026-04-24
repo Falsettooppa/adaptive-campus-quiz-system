@@ -1,68 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
-</head>
-<body class="bg-slate-100 min-h-screen">
-  <div class="max-w-7xl mx-auto px-6 py-10">
-    {% include 'partials/flash.html' %}
+{% extends "base.html" %}
 
-    <div class="bg-white rounded-2xl shadow-xl p-8">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
-          <h1 class="text-3xl font-bold text-slate-800">Admin Dashboard</h1>
-          <p class="text-slate-600 mt-1">Welcome, {{ user.full_name }}</p>
-        </div>
-        <div class="flex flex-wrap gap-3">
-          <a href="{{ url_for('main.admin_users') }}" class="bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-800">Manage Users</a>
-          <a href="{{ url_for('main.admin_courses') }}" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">View Courses</a>
-          <a href="{{ url_for('main.admin_reports') }}" class="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700">Institutional Reports</a>
-          <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">Logout</a>
-        </div>
-      </div>
+{% block title %}Admin Dashboard{% endblock %}
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Total Users</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_users }}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Students</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_students }}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Lecturers</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_lecturers }}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Admins</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_admins }}</p>
-        </div>
-      </div>
+{% block content %}
+<div class="bg-white rounded-2xl shadow-xl p-8">
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-slate-800">Admin Dashboard</h1>
+    <p class="text-slate-600 mt-1">Welcome, {{ user.full_name }}</p>
+  </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Courses</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_courses }}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Questions</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_questions }}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-6">
-          <h3 class="text-sm font-semibold text-slate-600">Quiz Attempts</h3>
-          <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_quiz_attempts }}</p>
-        </div>
-      </div>
-
-      <div class="mt-6 bg-blue-50 rounded-xl p-6">
-        <h3 class="text-sm font-semibold text-blue-700">Overall System Average</h3>
-        <p class="text-4xl font-bold text-blue-900 mt-2">{{ overall_average }}%</p>
-      </div>
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Total Users</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_users }}</p>
+    </div>
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Students</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_students }}</p>
+    </div>
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Lecturers</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_lecturers }}</p>
+    </div>
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Admins</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_admins }}</p>
     </div>
   </div>
-</body>
-</html>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Courses</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_courses }}</p>
+    </div>
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Questions</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_questions }}</p>
+    </div>
+    <div class="bg-slate-50 rounded-xl p-6">
+      <h3 class="text-sm font-semibold text-slate-600">Quiz Attempts</h3>
+      <p class="text-3xl font-bold text-slate-900 mt-2">{{ total_quiz_attempts }}</p>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-blue-50 rounded-xl p-6">
+    <h3 class="text-sm font-semibold text-blue-700">Overall System Average</h3>
+    <p class="text-4xl font-bold text-blue-900 mt-2">{{ overall_average }}%</p>
+  </div>
+</div>
+{% endblock %}

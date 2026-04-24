@@ -1,56 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Take Quiz</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
-</head>
-<body class="bg-slate-100 min-h-screen">
-  <div class="max-w-4xl mx-auto px-6 py-10">
-    {% include 'partials/flash.html' %}
+{% extends "base.html" %}
 
-    <div class="bg-white rounded-2xl shadow-xl p-8">
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold text-slate-800">{{ course.course_code }} - {{ course.course_title }}</h1>
-        <p class="text-slate-600 mt-1">Question {{ question_number }} of {{ total_questions }}</p>
-        <p class="text-sm text-slate-500 mt-2">Current difficulty: <span class="font-semibold capitalize">{{ quiz.current_difficulty }}</span></p>
+{% block title %}Take Quiz{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white rounded-2xl shadow-xl p-8">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-800">{{ course.course_code }} - {{ course.course_title }}</h1>
+      <p class="text-slate-600 mt-1">Question {{ question_number }} of {{ total_questions }}</p>
+      <p class="text-sm text-slate-500 mt-2">
+        Current difficulty:
+        <span class="font-semibold capitalize">{{ quiz.current_difficulty }}</span>
+      </p>
+    </div>
+
+    <form method="POST" class="space-y-6">
+      <input type="hidden" name="question_id" value="{{ question.id }}">
+
+      <h2 class="text-lg font-semibold text-slate-800">{{ question.question_text }}</h2>
+
+      <div class="space-y-3">
+        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer">
+          <input type="radio" name="selected_option" value="A" required>
+          <span><strong>A.</strong> {{ question.option_a }}</span>
+        </label>
+
+        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer">
+          <input type="radio" name="selected_option" value="B" required>
+          <span><strong>B.</strong> {{ question.option_b }}</span>
+        </label>
+
+        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer">
+          <input type="radio" name="selected_option" value="C" required>
+          <span><strong>C.</strong> {{ question.option_c }}</span>
+        </label>
+
+        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer">
+          <input type="radio" name="selected_option" value="D" required>
+          <span><strong>D.</strong> {{ question.option_d }}</span>
+        </label>
       </div>
 
-      <form method="POST" class="space-y-6">
-        <input type="hidden" name="question_id" value="{{ question.id }}">
-
-        <div>
-          <h2 class="text-lg font-semibold text-slate-800 mb-4">{{ question.question_text }}</h2>
-        </div>
-
-        <div class="space-y-3">
-          <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
-            <input type="radio" name="selected_option" value="A" required>
-            <span><strong>A.</strong> {{ question.option_a }}</span>
-          </label>
-
-          <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
-            <input type="radio" name="selected_option" value="B" required>
-            <span><strong>B.</strong> {{ question.option_b }}</span>
-          </label>
-
-          <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
-            <input type="radio" name="selected_option" value="C" required>
-            <span><strong>C.</strong> {{ question.option_c }}</span>
-          </label>
-
-          <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50">
-            <input type="radio" name="selected_option" value="D" required>
-            <span><strong>D.</strong> {{ question.option_d }}</span>
-          </label>
-        </div>
-
-        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700">
-          Submit Answer
-        </button>
-      </form>
-    </div>
+      <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700">
+        Submit Answer
+      </button>
+    </form>
   </div>
-</body>
-</html>
+</div>
+{% endblock %}
