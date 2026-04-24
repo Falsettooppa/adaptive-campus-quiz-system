@@ -1,92 +1,363 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}Adaptive Campus Quiz System{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
-</head>
-<body class="bg-slate-100 min-h-screen">
-  {% if session.get("user") %}
-    <nav class="bg-white shadow-sm border-b border-slate-200">
-      <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <a href="{{ url_for('main.home') }}" class="text-xl font-bold text-slate-800">
-            Adaptive Campus Quiz System
-          </a>
-        </div>
-
-        <div class="flex flex-wrap gap-3 items-center">
-          {% if session["user"]["role"] == "student" %}
-            <a href="{{ url_for('main.student_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
-          {% elif session["user"]["role"] == "lecturer" %}
-            <a href="{{ url_for('main.lecturer_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
-            <a href="{{ url_for('main.create_course') }}" class="text-slate-700 hover:text-slate-900">Courses</a>
-            <a href="{{ url_for('main.create_question') }}" class="text-slate-700 hover:text-slate-900">Questions</a>
-            <a href="{{ url_for('main.lecturer_analytics') }}" class="text-slate-700 hover:text-slate-900">Analytics</a>
-          {% elif session["user"]["role"] == "admin" %}
-            <a href="{{ url_for('main.admin_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
-            <a href="{{ url_for('main.admin_users') }}" class="text-slate-700 hover:text-slate-900">Users</a>
-            <a href="{{ url_for('main.admin_courses') }}" class="text-slate-700 hover:text-slate-900">Courses</a>
-            <a href="{{ url_for('main.admin_reports') }}" class="text-slate-700 hover:text-slate-900">Reports</a>
-          {% endif %}
-
-          <a href="{{ url_for('main.notifications') }}" class="text-slate-700 hover:text-slate-900">Notifications</a>
-          <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">Logout</a>
-        </div>
-      </div>
-    </nav>
-  {% endif %}
-
-  <main class="max-w-7xl mx-auto px-6 py-10">
-    {% include 'partials/flash.html' %}
-    {% block content %}{% endblock %}
-  </main>
-</body>
-</html> -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Adaptive Campus Quiz System{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+  <style>
+    :root {
+      --nav-h: 68px;
+      --font-display: 'DM Serif Display', serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Active nav link ── */
+    .nav-link {
+      position: relative;
+      transition: color 150ms ease, background 150ms ease;
+    }
+    .nav-link.active {
+      color: #0f172a;
+      background: #f1f5f9;
+      font-weight: 600;
+    }
+    .nav-link.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 2px;
+      background: #6366f1;
+      border-radius: 99px;
+    }
+
+    /* ── Mobile menu slide ── */
+    #mobile-menu {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 380ms cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 280ms ease;
+      opacity: 0;
+    }
+    #mobile-menu.open {
+      max-height: 600px;
+      opacity: 1;
+    }
+
+    /* ── Hamburger icon animation ── */
+    .ham-line {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: #334155;
+      border-radius: 99px;
+      transition: transform 280ms ease, opacity 200ms ease;
+      transform-origin: center;
+    }
+    .ham-open .ham-line:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .ham-open .ham-line:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .ham-open .ham-line:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+    /* ── Role badge colors ── */
+    .badge-student  { background: #ede9fe; color: #6d28d9; }
+    .badge-lecturer { background: #dcfce7; color: #15803d; }
+    .badge-admin    { background: #fef9c3; color: #a16207; }
+
+    /* ── Page content fade-in ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .page-content { animation: fadeUp 350ms ease both; }
+
+    /* ── Flash message animation ── */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .flash-msg { animation: slideIn 300ms ease both; }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
   {% if session.get("user") %}
-    <nav class="bg-white border-b border-slate-200 shadow-sm">
-      <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <a href="{{ url_for('main.home') }}" class="text-xl font-bold text-slate-800">
-          Adaptive Campus Quiz System
+  {% set role = session["user"]["role"] %}
+  {% set name = session["user"]["full_name"] %}
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between h-[68px] gap-4">
+
+        <!-- Brand -->
+        <a href="{{ url_for('main.home') }}" class="flex items-center gap-2.5 shrink-0 group">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition-colors">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <div class="leading-tight">
+            <p class="text-sm font-semibold text-slate-900 tracking-tight">Adaptive Quiz</p>
+            <p class="text-[10px] text-slate-400 font-normal leading-none">Campus Platform</p>
+          </div>
         </a>
 
-        <div class="flex flex-wrap items-center gap-4 text-sm font-medium">
-          {% if session["user"]["role"] == "student" %}
-            <a href="{{ url_for('main.student_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
-          {% elif session["user"]["role"] == "lecturer" %}
-            <a href="{{ url_for('main.lecturer_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
-            <a href="{{ url_for('main.create_course') }}" class="text-slate-700 hover:text-slate-900">Create Course</a>
-            <a href="{{ url_for('main.create_question') }}" class="text-slate-700 hover:text-slate-900">Add Question</a>
-            <a href="{{ url_for('main.view_questions') }}" class="text-slate-700 hover:text-slate-900">Question Bank</a>
-            <a href="{{ url_for('main.lecturer_analytics') }}" class="text-slate-700 hover:text-slate-900">Analytics</a>
-          {% elif session["user"]["role"] == "admin" %}
-            <a href="{{ url_for('main.admin_dashboard') }}" class="text-slate-700 hover:text-slate-900">Dashboard</a>
-            <a href="{{ url_for('main.admin_users') }}" class="text-slate-700 hover:text-slate-900">Users</a>
-            <a href="{{ url_for('main.admin_courses') }}" class="text-slate-700 hover:text-slate-900">Courses</a>
-            <a href="{{ url_for('main.admin_reports') }}" class="text-slate-700 hover:text-slate-900">Reports</a>
-          {% endif %}
+        <!-- Desktop nav -->
+        <nav class="hidden lg:flex items-center gap-1 flex-1 px-4">
+          {% if role == "student" %}
+            <a href="{{ url_for('main.student_dashboard') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.student_dashboard' %}active{% endif %}">
+              Dashboard
+            </a>
+            <a href="{{ url_for('main.notifications') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.notifications' %}active{% endif %}">
+              Notifications
+            </a>
 
-          <a href="{{ url_for('main.notifications') }}" class="text-slate-700 hover:text-slate-900">Notifications</a>
-          <a href="{{ url_for('auth.logout') }}" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">Logout</a>
+          {% elif role == "lecturer" %}
+            <a href="{{ url_for('main.lecturer_dashboard') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.lecturer_dashboard' %}active{% endif %}">
+              Dashboard
+            </a>
+            <a href="{{ url_for('main.create_course') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.create_course' %}active{% endif %}">
+              Create Course
+            </a>
+            <a href="{{ url_for('main.create_question') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.create_question' %}active{% endif %}">
+              Add Question
+            </a>
+            <a href="{{ url_for('main.view_questions') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.view_questions' %}active{% endif %}">
+              Question Bank
+            </a>
+            <a href="{{ url_for('main.lecturer_analytics') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.lecturer_analytics' %}active{% endif %}">
+              Analytics
+            </a>
+            <a href="{{ url_for('main.notifications') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.notifications' %}active{% endif %}">
+              Notifications
+            </a>
+
+          {% elif role == "admin" %}
+            <a href="{{ url_for('main.admin_dashboard') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.admin_dashboard' %}active{% endif %}">
+              Dashboard
+            </a>
+            <a href="{{ url_for('main.admin_users') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.admin_users' %}active{% endif %}">
+              Users
+            </a>
+            <a href="{{ url_for('main.admin_courses') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.admin_courses' %}active{% endif %}">
+              Courses
+            </a>
+            <a href="{{ url_for('main.admin_reports') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.admin_reports' %}active{% endif %}">
+              Reports
+            </a>
+            <a href="{{ url_for('main.notifications') }}"
+               class="nav-link px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 {% if request.endpoint == 'main.notifications' %}active{% endif %}">
+              Notifications
+            </a>
+          {% endif %}
+        </nav>
+
+        <!-- Desktop right: user + logout -->
+        <div class="hidden lg:flex items-center gap-3 shrink-0">
+          <div class="text-right">
+            <p class="text-sm font-semibold text-slate-800 leading-tight">{{ name }}</p>
+            <span class="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full capitalize
+              {% if role == 'student' %}badge-student
+              {% elif role == 'lecturer' %}badge-lecturer
+              {% else %}badge-admin{% endif %}">
+              {{ role }}
+            </span>
+          </div>
+          <div class="w-px h-8 bg-slate-200"></div>
+          <a href="{{ url_for('auth.logout') }}"
+             class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Logout
+          </a>
         </div>
+
+        <!-- Mobile: user initial + hamburger -->
+        <div class="flex lg:hidden items-center gap-2">
+          <!-- User avatar pill -->
+          <div class="flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-100">
+            <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">
+              {{ name[0].upper() }}
+            </div>
+            <span class="text-xs font-medium text-slate-700 max-w-[80px] truncate">{{ name.split()[0] }}</span>
+          </div>
+
+          <!-- Hamburger -->
+          <button id="ham-btn" aria-label="Toggle menu" aria-expanded="false"
+                  class="flex flex-col gap-[5px] p-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <span class="ham-line"></span>
+            <span class="ham-line"></span>
+            <span class="ham-line"></span>
+          </button>
+        </div>
+
+      </div><!-- /flex row -->
+    </div><!-- /container -->
+
+    <!-- Mobile menu -->
+    <div id="mobile-menu" role="navigation" aria-label="Mobile navigation">
+      <div class="max-w-7xl mx-auto px-4 pb-4 flex flex-col gap-1 border-t border-slate-100">
+
+        <div class="pt-3 pb-1 flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">{{ name }}</p>
+            <span class="inline-block text-[10px] font-medium px-2 py-0.5 rounded-full capitalize mt-0.5
+              {% if role == 'student' %}badge-student
+              {% elif role == 'lecturer' %}badge-lecturer
+              {% else %}badge-admin{% endif %}">
+              {{ role }}
+            </span>
+          </div>
+          <a href="{{ url_for('auth.logout') }}"
+             class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Logout
+          </a>
+        </div>
+
+        <div class="h-px bg-slate-100 my-1"></div>
+
+        {% if role == "student" %}
+          <a href="{{ url_for('main.student_dashboard') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.student_dashboard' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </a>
+          <a href="{{ url_for('main.notifications') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.notifications' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            Notifications
+          </a>
+
+        {% elif role == "lecturer" %}
+          <a href="{{ url_for('main.lecturer_dashboard') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.lecturer_dashboard' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </a>
+          <a href="{{ url_for('main.create_course') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.create_course' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Create Course
+          </a>
+          <a href="{{ url_for('main.create_question') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.create_question' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Add Question
+          </a>
+          <a href="{{ url_for('main.view_questions') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.view_questions' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Question Bank
+          </a>
+          <a href="{{ url_for('main.lecturer_analytics') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.lecturer_analytics' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Analytics
+          </a>
+          <a href="{{ url_for('main.notifications') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.notifications' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            Notifications
+          </a>
+
+        {% elif role == "admin" %}
+          <a href="{{ url_for('main.admin_dashboard') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.admin_dashboard' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </a>
+          <a href="{{ url_for('main.admin_users') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.admin_users' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Users
+          </a>
+          <a href="{{ url_for('main.admin_courses') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.admin_courses' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            Courses
+          </a>
+          <a href="{{ url_for('main.admin_reports') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.admin_reports' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Reports
+          </a>
+          <a href="{{ url_for('main.notifications') }}"
+             class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100 {% if request.endpoint == 'main.notifications' %}active{% endif %}">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            Notifications
+          </a>
+        {% endif %}
+
       </div>
-    </nav>
+    </div>
+  </header>
   {% endif %}
 
-  <main class="max-w-7xl mx-auto px-6 py-10">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-content">
     {% include 'partials/flash.html' %}
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    // Hamburger toggle
+    const hamBtn  = document.getElementById('ham-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    if (hamBtn && mobileMenu) {
+      hamBtn.addEventListener('click', () => {
+        const isOpen = mobileMenu.classList.toggle('open');
+        hamBtn.classList.toggle('ham-open', isOpen);
+        hamBtn.setAttribute('aria-expanded', isOpen);
+      });
+
+      // Close on outside click
+      document.addEventListener('click', (e) => {
+        if (!hamBtn.contains(e.target) && !mobileMenu.contains(e.target)) {
+          mobileMenu.classList.remove('open');
+          hamBtn.classList.remove('ham-open');
+          hamBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Close on nav link click (mobile)
+      mobileMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          mobileMenu.classList.remove('open');
+          hamBtn.classList.remove('ham-open');
+          hamBtn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+  </script>
 </body>
 </html>
