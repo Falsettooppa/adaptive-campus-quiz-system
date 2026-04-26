@@ -2,8 +2,32 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from app.db import get_db
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from flask import current_app
+
 
 auth = Blueprint("auth", __name__)
+def get_serializer():
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+
+
+def generate_reset_token(email):
+    serializer = get_serializer()
+    return serializer.dumps(email, salt="password-reset-salt")
+
+
+def verify_reset_token(token, max_age=1800):
+    serializer = get_serializer()
+
+    try:
+        email = serializer.loads(
+            token,
+            salt="password-reset-salt",
+            max_age=max_age
+        )
+        return email
+    except (SignatureExpired, BadSignature):
+        return None
 
 
 def login_required(role=None):
@@ -141,6 +165,67 @@ def login():
         return redirect(url_for("auth.login"))
 
     return render_template("auth/login.html")
+@auth.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        db = get_db()
+
+        email = request.form.get("email", "").strip().lower()
+        user = db.users.find_one({"email": email})
+
+        if not user:
+            flash("If this email exists, a reset link will be provided.", "success")
+            return redirect(url_for("auth.login"))
+
+        token = generate_reset_token(email)
+        reset_link = url_for("auth.reset_password", token=token, _external=True)
+
+        return render_template(
+            "auth/reset_link.html",
+            reset_link=reset_link
+        )
+
+    return render_template("auth/forgot_password.html")
+
+
+@auth.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    email = verify_reset_token(token)
+
+    if not email:
+        flash("Password reset link is invalid or has expired.", "error")
+        return redirect(url_for("auth.forgot_password"))
+
+    if request.method == "POST":
+        db = get_db()
+
+        password = request.form.get("password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+
+        if not password or not confirm_password:
+            flash("Both password fields are required.", "error")
+            return redirect(url_for("auth.reset_password", token=token))
+
+        if password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return redirect(url_for("auth.reset_password", token=token))
+
+        db.users.update_one(
+            {"email": email},
+            {"$set": {"password_hash": generate_password_hash(password)}}
+        )
+
+        db.notifications.insert_one({
+            "user_id": str(db.users.find_one({"email": email})["_id"]),
+            "title": "Password Updated",
+            "message": "Your password was changed successfully.",
+            "is_read": False
+        })
+
+        flash("Password reset successful. Please log in.", "success")
+        return redirect(url_for("auth.login"))
+
+    return render_template("auth/reset_password.html")
 
 
 @auth.route("/logout")
